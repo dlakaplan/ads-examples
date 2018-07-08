@@ -16,7 +16,7 @@ Bear in mind, you will have to manually modify max_pages and rows if you are
 doing very large searches.
 """
 
-import sys
+import sys,os
 import numpy
 import argparse
 import matplotlib
@@ -29,6 +29,9 @@ import ads
 import subprocess
 from jinja2 import Template
 
+# save the path to the file so that all of the template
+# can be located
+runpath=os.path.split(os.path.realpath(__file__))[0]
 
 def dyear(y):
     """
@@ -198,7 +201,7 @@ def metrics_to_pandas(metrics):
     return pandas.DataFrame(data, index=pandas.DatetimeIndex(years))
 
 
-def build_latex(metrics, orcid_id=None, plot=None, desc=None):
+def build_latex(metrics, output_path, orcid_id=None, plot=None, desc=None):
     """
     Fill in the basic latex template and generate a PDF. This requires the
     user to have PDFLaTeX installed, otherwise it will not work.
@@ -206,6 +209,9 @@ def build_latex(metrics, orcid_id=None, plot=None, desc=None):
 
     :param metrics: data returned from metrics end point
     :type metrics: JSON
+
+    :param output_path: output path for results
+    :type output_path: basestring
 
     :param orcid_id: Users ORCiD iD
     :type orcid_id: basestring
@@ -215,7 +221,8 @@ def build_latex(metrics, orcid_id=None, plot=None, desc=None):
     """
 
     # Load LaTeX template
-    with open('mymetrics.tex.template', 'r') as f:
+    global runpath
+    with open('{}/mymetrics.tex.template'.format(runpath), 'r') as f:
         latex_template = Template(f.read())
 
     orcid = '{{\\bf ORCiD iD}}: {}'.format(orcid_id) if orcid_id else ''
@@ -281,11 +288,11 @@ def build_latex(metrics, orcid_id=None, plot=None, desc=None):
     )
 
     # Save filled LaTeX template
-    with open('mymetrics.tex', 'w') as f:
+    with open('{}/mymetrics.tex'.format(output_path), 'w') as f:
         f.write(rendered_latex)
 
     # Build laTeX
-    cmd = ['pdflatex', 'mymetrics.tex']
+    cmd = ['pdflatex', '{}/mymetrics.tex'.format(output_path)]
     print('Building LaTeX: {}'.format(' '.join(cmd)))
     p = subprocess.Popen(
         cmd,
@@ -297,9 +304,10 @@ def build_latex(metrics, orcid_id=None, plot=None, desc=None):
         print('LaTeX compilation error: {}'.format(err))
 
 
-def save_metrics(metrics):
+def save_metrics(metrics, output_path):
 
-    with open('mymetrics.txt.template', 'r') as f:
+    global runpath
+    with open('{}/mymetrics.txt.template'.format(runpath),'r') as f:
         txt_template = Template(f.read())
 
         txt_rendered = txt_template.render(
@@ -357,7 +365,7 @@ def save_metrics(metrics):
             med_downloads_ref=metrics['basic stats refereed']['median number of downloads'],
         )
 
-    with open('metrics.txt', 'w') as f:
+    with open('{}/metrics.txt'.format(output_path), 'w') as f:
         f.write(txt_rendered)
 
 
@@ -540,11 +548,11 @@ def main(output_path, figure_format, orcid=False, bibcodes=False, query=False, s
                         other=','.join([str(output[k][i]) for k in keys])
                     ))
 
-        save_metrics(metrics)
+        save_metrics(metrics, output_path=output_path)
 
     # Does the user want a printable PDF?
     if printable:
-        build_latex(metrics, orcid_id=orcid, plot=plot, desc=desc)
+        build_latex(metrics, output_path=output_path, orcid_id=orcid, plot=plot, desc=desc)
 
 
 if __name__ == '__main__':
